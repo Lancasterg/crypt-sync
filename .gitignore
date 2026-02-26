@@ -1,0 +1,3 @@
+dev_tools/*
+.envrc
+bin/go-crypt-sync
