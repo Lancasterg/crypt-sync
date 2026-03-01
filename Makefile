@@ -1,6 +1,5 @@
 .PHONY: build clean upload download
 
-
 build:
 	go build -o bin/go-crypt-sync .	
 
