@@ -17,7 +17,9 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up age
-      run: apt install age
+      run: | 
+        sudo apt update
+        sudo apt install -y age
 
     - name: Set up Go
       uses: actions/setup-go@v4
