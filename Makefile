@@ -11,3 +11,9 @@ upload:
 
 download:
 	go run main.go download encrypted-files-home github_recovery_codes.enc --decrypt true
+
+list:
+	go run main.go list
+
+append:
+	go run main.go append SomeService my-username mypassword --recovery=hello:goodbye --recovery=smile:yay --file-name=dev_tools/decrypted.json

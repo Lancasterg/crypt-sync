@@ -7,6 +7,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -28,20 +29,67 @@ type Recovery struct {
 	Answer   string `json:"answer"`
 }
 
+// Metadata struct for auditing the updating of existing entries
+// We can check if the FingerPrint has changed since the file was last updated
+type MetaData struct {
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	VersionNumber int       `json:"version_number"`
+	FingerPrint   [32]byte  `json:"fingerprint"` // sha-256 of all fields
+}
+
 type JSONEntry struct {
 	Service  string     `json:"service"`
 	Login    Login      `json:"login"`
 	Recovery []Recovery `json:"recovery"`
+	MetaData MetaData   `json:"metadata"`
 }
 
 // NewJSONEntry Creates a new JSONEntry Object
 // Currently not used, but will be used in future to add to json documents
 // prior to encrypting
-func NewJSONEntry(service string, username string, password string, recovery []Recovery) JSONEntry {
-	return JSONEntry{
-		Service:  service,
-		Login:    Login{Username: username, Password: *secretstring.New(password)},
-		Recovery: recovery,
+func NewJSONEntry(service string, username string, password string, recovery []Recovery, metaData *MetaData) (*JSONEntry, error) {
+
+	// Generate fingerprint
+	fingerPrint := sha256.Sum256([]byte(service + username + password))
+
+	// If metaData is nil, generate a new metadata field from scratch
+	if metaData == nil {
+		metaData = &MetaData{
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+			VersionNumber: 1,
+			FingerPrint:   sha256.Sum256([]byte(service + username + password)),
+		}
+
+		return &JSONEntry{
+			Service:  service,
+			Login:    Login{Username: username, Password: *secretstring.New(password)},
+			Recovery: recovery,
+			MetaData: *metaData,
+		}, nil
+
+		// If metaData is not nil, and the fingerprints match
+	} else if fingerPrint == metaData.FingerPrint {
+		metaData = &MetaData{
+			CreatedAt:     metaData.CreatedAt,
+			UpdatedAt:     time.Now(),
+			VersionNumber: metaData.VersionNumber + 1,
+			FingerPrint:   sha256.Sum256([]byte(service + username + password)),
+		}
+
+		return &JSONEntry{
+			Service:  service,
+			Login:    Login{Username: username, Password: *secretstring.New(password)},
+			Recovery: recovery,
+			MetaData: *metaData,
+		}, nil
+
+		// If the fingerprints do not match
+	} else if fingerPrint != metaData.FingerPrint {
+		return nil, fmt.Errorf("fingerprints do not match - file may have been maliciously edited.")
+	} else {
+		return nil, fmt.Errorf("unknown error")
 	}
 }
 
