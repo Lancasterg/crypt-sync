@@ -1,9 +1,5 @@
-# go-crypt-sync
-v0.0.1
-# go-crypt-sync 🔒
-v0.0.1
+# go-crypt-sync v0.0.1 🔒
 
-## MVP
 A CLI tool for securely syncing encrypted files to Google Cloud Storage.
 
 ## Why it exists
@@ -12,30 +8,37 @@ In an era where data privacy is paramount, trusting cloud providers with sensiti
 
 It ensures that your files—specifically sensitive configuration or credential files—are encrypted **before** they leave your machine. The cloud provider only ever sees encrypted binary blobs. Decryption occurs locally on your trusted machine, in memory, ensuring no unencrypted data is ever written to disk during the sync process unless explicitly requested.
 
-## Installation
+The latest binary can be downloaded [here](https://github.com/Lancasterg/crypt-sync/blob/main/bin/go-crypt-sync)
+
+## Installation (for devs)
 
 Ensure you have Actually Good Encryption (AGE) installed on your machine.
 
 Arch (based) users
 ```bash
-sudo pacman -S age
+$ sudo pacman -S age
 ```
 
 Mac
 ```bash
-brew install age
+$ brew install age
 ```
 
 Ubuntu / Debian
 ```bash
-sudo apt install age
-
-
-To install the binary directly:
-
-```bash
-go install github.com/lancaster0180/go-crypt-sync@latest
+$ sudo apt install age
 ```
 
-Otherwise, the latest binary can be downloaded (here)[https://github.com/Lancasterg/crypt-sync/tree/main/bin]
+``` bash
+# Clone the repo
+$ git clone git@github.com:Lancasterg/crypt-sync.git
 
+# Set your AGE_HOME dir
+$ export AGE_HOME="$HOME/.config/age"
+
+# Encrypt and upload your first file
+$ go run main.go encrypt [local_file.json] [uploaded_file.enc]
+
+$ go run main.go download [bucket-name] [file_name] [--output dev_tools/test123.json] [--decrypt true]
+
+```
