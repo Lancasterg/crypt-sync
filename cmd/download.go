@@ -28,7 +28,7 @@ func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 	content, err := os.ReadFile(keyPath)
 
 	if err != nil {
-		log.Fatalf("File not found:", keyPath)
+		log.Fatalf("File not found: %s", keyPath)
 	}
 
 	keyContent := string(content)
@@ -42,7 +42,7 @@ func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 		bytes, err := decryptData(privateKey, []byte(fileContent))
 
 		if err != nil {
-			log.Fatalf("decryption failed: %w", err)
+			log.Fatalf("decryption failed: %v", err)
 		} else {
 			return bytes, nil
 		}
@@ -53,18 +53,16 @@ func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 
 }
 
-// downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
-	Use:   "download [bucket-name] [file-name]",
+	Use:   "download [bucket-name] [file-name] [optional --output] [optional --decrypt (default: false)]",
 	Short: "Download and optionally decrypt a GCS file",
-	// Args:  cobra.ExactArgs(2), // Ensures bucket and file are provided
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketName := args[0]
 		fileName := args[1]
 
 		var finalData []byte
 
-		// 1. Download
+		// Download from GCS bucket
 		file, err := DownloadFromGCSBucket(bucketName, fileName)
 		if err != nil {
 			log.Fatalf("Download failed: %v", err)

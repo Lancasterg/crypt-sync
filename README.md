@@ -1,6 +1,7 @@
 # go-crypt-sync
 v0.0.1
 # go-crypt-sync 🔒
+v0.0.1
 
 ## MVP
 A CLI tool for securely syncing encrypted files to Google Cloud Storage.
@@ -13,7 +14,28 @@ It ensures that your files—specifically sensitive configuration or credential 
 
 ## Installation
 
+Ensure you have Actually Good Encryption (AGE) installed on your machine.
+
+Arch (based) users
+```bash
+sudo pacman -S age
+```
+
+Mac
+```bash
+brew install age
+```
+
+Ubuntu / Debian
+```bash
+sudo apt install age
+
+
 To install the binary directly:
 
 ```bash
 go install github.com/lancaster0180/go-crypt-sync@latest
+```
+
+Otherwise, the latest binary can be downloaded (here)[https://github.com/Lancasterg/crypt-sync/tree/main/bin]
+
