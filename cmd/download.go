@@ -14,14 +14,7 @@ import (
 
 var shouldDecrypt bool
 
-func DecryptFile(keyName string, fileContent string) ([]byte, error) {
-	ageHome := os.Getenv("AGE_HOME")
-
-	if ageHome == "" {
-		log.Fatalf("AGE_HOME environment variable not set")
-	}
-
-	keyPath := ageHome + "/" + keyName
+func DecryptFile(keyPath string, fileContent string) ([]byte, error) {
 
 	log.Println("Reading key from:", keyPath)
 
@@ -54,13 +47,23 @@ func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 }
 
 var downloadCmd = &cobra.Command{
-	Use:   "download [bucket-name] [file-name] [optional --output] [optional --decrypt (default: false)]",
+	Use:   "download [bucket-name] [file-name] [optional --decryption-key] [optional --output] [optional --decrypt (default: false)]",
 	Short: "Download and optionally decrypt a GCS file",
 	Run: func(cmd *cobra.Command, args []string) {
 		bucketName := args[0]
 		fileName := args[1]
 
 		var finalData []byte
+
+		ageHome := os.Getenv("AGE_HOME")
+		keyPath, err := cmd.Flags().GetString("decryption-key")
+		if keyPath != "" {
+			// Do nothing as key has been found
+		} else if ageHome != "" {
+			keyPath = ageHome + "/master.txt"
+		} else {
+			log.Fatalf("Either --decryption-key or AGE_HOME environment variable not set")
+		}
 
 		// Download from GCS bucket
 		file, err := DownloadFromGCSBucket(bucketName, fileName)
@@ -71,7 +74,7 @@ var downloadCmd = &cobra.Command{
 
 		// Optional Decrypt
 		if shouldDecrypt {
-			finalData, err = DecryptFile("master.txt", string(file))
+			finalData, err = DecryptFile(keyPath, string(file))
 			if err != nil {
 				log.Fatalf("Decryption failed: %v", err)
 			}
@@ -99,5 +102,6 @@ var downloadCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(downloadCmd)
 	downloadCmd.Flags().StringP("output", "o", "", "Specify an output file path (optional)")
+	downloadCmd.Flags().StringP("decryption-key", "k", "", "Specify a decryption key (optional)")
 	downloadCmd.Flags().BoolVarP(&shouldDecrypt, "decrypt", "d", false, "Decrypt the file after downloading")
 }

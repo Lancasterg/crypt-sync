@@ -14,16 +14,24 @@ import (
 
 // encryptCmd represents the encrypt command
 var encryptCmd = &cobra.Command{
-	Use:   "encrypt [input_file] [output_file]",
-	Args:  cobra.ExactArgs(2),
+	Use: "encrypt [input_file] [output_file]",
+	// Args:  cobra.ExactArgs(2),
 	Short: "Encrypt a file using the age master key and upload the encrypted file to a GCS bucket.",
 	Long: `This key is typically found at /$HOME/.config/age"
 	You can export the AGE_HOME environment variable to point to this location.
 	By default, the tool looks for the master.txt file in the same directory.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
+
 		ageHome := os.Getenv("AGE_HOME")
-		keyName := "master.txt"
+		keyPath, err := cmd.Flags().GetString("encryption-key")
+		if keyPath != "" {
+			// Do nothing as key has been found
+		} else if ageHome != "" {
+			keyPath = ageHome + "/master.txt"
+		} else {
+			log.Fatalf("Either --encryption-key or AGE_HOME environment variable not set")
+		}
 
 		if ageHome == "" {
 			log.Fatalf("AGE_HOME environment variable not set")
@@ -31,7 +39,6 @@ var encryptCmd = &cobra.Command{
 
 		inputFile := args[0]
 		outputFile := args[1]
-		keyPath := ageHome + "/" + keyName
 
 		fmt.Println("Reading key from:", keyPath)
 
@@ -73,4 +80,5 @@ var encryptCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(encryptCmd)
+	encryptCmd.Flags().StringP("encryption-key", "k", "", "Specify an encryption key (optional)")
 }
