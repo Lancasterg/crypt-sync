@@ -1,5 +1,5 @@
 /*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+Copyright © 2026 GEORGE LANCASTER <lancaster0180@gmail.com>
 */
 package cmd
 
@@ -16,13 +16,11 @@ import (
 var encryptCmd = &cobra.Command{
 	Use:   "encrypt [input_file] [output_file]",
 	Args:  cobra.ExactArgs(2),
-	Short: "Encrypt a file using the age master key",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Encrypt a file using the age master key and upload the encrypted file to a GCS bucket.",
+	Long: `This key is typically found at /$HOME/.config/age"
+	You can export the AGE_HOME environment variable to point to this location.
+	By default, the tool looks for the master.txt file in the same directory.
+	`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ageHome := os.Getenv("AGE_HOME")
 		keyName := "master.txt"
@@ -40,8 +38,7 @@ to quickly create a Cobra application.`,
 		content, err := os.ReadFile(keyPath)
 
 		if err != nil {
-			fmt.Println("File not found:", keyPath)
-			os.Exit(1)
+			log.Fatalf("File not found: %s", keyPath)
 		}
 
 		keyContent := string(content)
@@ -56,7 +53,7 @@ to quickly create a Cobra application.`,
 		if len(matches) > 1 {
 
 			publicKey := matches[1]
-			fmt.Println("Extracted Public Key: ", publicKey)
+			log.Println("Extracted Public Key: ", publicKey)
 			encryptedBytes, err := EncryptInMemory(publicKey, inputFileRead)
 			log.Println(encryptedBytes)
 

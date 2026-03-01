@@ -1,11 +1,10 @@
 /*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
+Copyright © 2026 GEORGE LANCASTER <lancaster0180@gmail.com>
 */
 package cmd
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -13,23 +12,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var shouldDecrypt bool
+
 func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 	ageHome := os.Getenv("AGE_HOME")
 
 	if ageHome == "" {
-		fmt.Println("AGE_HOME environment variable not set")
-		os.Exit(1)
+		log.Fatalf("AGE_HOME environment variable not set")
 	}
 
 	keyPath := ageHome + "/" + keyName
 
-	fmt.Println("Reading key from:", keyPath)
+	log.Println("Reading key from:", keyPath)
 
 	content, err := os.ReadFile(keyPath)
 
 	if err != nil {
-		fmt.Println("File not found:", keyPath)
-		os.Exit(1)
+		log.Fatalf("File not found:", keyPath)
 	}
 
 	keyContent := string(content)
@@ -43,16 +42,12 @@ func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 		bytes, err := decryptData(privateKey, []byte(fileContent))
 
 		if err != nil {
-			formattedErr := fmt.Errorf("decryption failed: %w", err)
-			fmt.Println(formattedErr)
-			return nil, err
-
+			log.Fatalf("decryption failed: %w", err)
 		} else {
 			return bytes, nil
 		}
 	} else {
-		fmt.Println("Private key not found in key file")
-		os.Exit(1)
+		log.Fatalf("Private key not found in key file")
 	}
 	return nil, err
 
@@ -60,58 +55,45 @@ func DecryptFile(keyName string, fileContent string) ([]byte, error) {
 
 // downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
-	Use: "download [bucket-name] [file-name]",
-	// Args:  cobra.ExactArgs(2),
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:   "download [bucket-name] [file-name]",
+	Short: "Download and optionally decrypt a GCS file",
+	// Args:  cobra.ExactArgs(2), // Ensures bucket and file are provided
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("download called")
 		bucketName := args[0]
 		fileName := args[1]
 
-		// Download from GCS bucket
+		var finalData []byte
+
+		// 1. Download
 		file, err := DownloadFromGCSBucket(bucketName, fileName)
 		if err != nil {
-			log.Fatalf("Failed to download from GCS: %v", err)
+			log.Fatalf("Download failed: %v", err)
 		}
+		finalData = file
 
-		// Decrypt (returns []byte)
-		decryptedRaw, err := DecryptFile("master.txt", string(file))
-		if err != nil {
-			log.Fatalf("Decryption failed: %v", err)
-		}
-
-		// Skip Base64 Decoding entirely.
-		// DecryptFile already gave us the "cleartext" bytes.
-		var entries []JsonEntry
-		err = json.Unmarshal(decryptedRaw, &entries)
-		if err != nil {
-			// If it fails here, print the string to see what you actually got
-			log.Printf("Actual content: %s\n", string(decryptedRaw))
-			log.Fatalf("Failed to unmarshal JSON: %v", err)
-		}
-
-		// Success!
-		if len(entries) > 0 {
-			log.Printf("Service: %s\n", entries[0].Service)
-			log.Printf("Password: %v\n", entries[0].Login.Password)
-		}
-
-		outputFile, err := cmd.Flags().GetString("output")
-		if err != nil || outputFile == "" {
-			log.Printf("No output flag specified, writing to stdout\n")
-			fmt.Println(string(decryptedRaw))
-		} else {
-			err = os.WriteFile(outputFile, decryptedRaw, 0644)
+		// 2. Optional Decrypt
+		if shouldDecrypt {
+			finalData, err = DecryptFile("master.txt", string(file))
 			if err != nil {
-				log.Fatalf("Failed to write to file: %v", err)
+				log.Fatalf("Decryption failed: %v", err)
 			}
-			log.Printf("Wrote to file: %s\n", outputFile)
+
+			// Validate JSON structure
+			var entries []JsonEntry
+			if err := json.Unmarshal(finalData, &entries); err == nil && len(entries) > 0 {
+				log.Printf("Successfully decrypted service: %s\n", entries[0].Service)
+			}
+		}
+
+		// 3. Output Logic (Moved OUTSIDE the if/else)
+		outputFile, _ := cmd.Flags().GetString("output")
+		if outputFile == "" {
+			log.Fatalf(string(finalData))
+		} else {
+			if err := os.WriteFile(outputFile, finalData, 0644); err != nil {
+				log.Fatalf("Failed to write file: %v", err)
+			}
+			log.Printf("File saved to: %s\n", outputFile)
 		}
 	},
 }
@@ -119,5 +101,5 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(downloadCmd)
 	downloadCmd.Flags().StringP("output", "o", "", "Specify an output file path (optional)")
-
+	downloadCmd.Flags().BoolVarP(&shouldDecrypt, "decrypt", "d", false, "Decrypt the file after downloading")
 }

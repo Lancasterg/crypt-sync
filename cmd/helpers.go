@@ -1,3 +1,7 @@
+/*
+Copyright © 2026 GEORGE LANCASTER <lancaster0180@gmail.com>
+*/
+
 package cmd
 
 import (
@@ -5,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -28,11 +33,25 @@ type JsonEntry struct {
 	Recovery []Recovery `json:"recovery"`
 }
 
+// Creates a new JsonEntry Object
+// Currently not used, but will be used in future to add to json documents
+// prior to encrypting
+func NewJsonEntry(service string, username string, password string, recovery []Recovery) JsonEntry {
+	return JsonEntry{
+		Service:  service,
+		Login:    Login{Username: username, Password: *secretstring.New(password)},
+		Recovery: recovery,
+	}
+}
+
+// Download an encrypted file from a GCS bucket.
+// This function does not write to disk, it simply downloads the file and stores the result
+// in memory as bytes.
 func DownloadFromGCSBucket(bucketName string, objectName string) ([]byte, error) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("storage.NewClient: %w", err)
+		log.Fatalf("storage.NewClient: %w", err)
 	}
 	defer client.Close()
 
@@ -41,16 +60,16 @@ func DownloadFromGCSBucket(bucketName string, objectName string) ([]byte, error)
 
 	rc, err := client.Bucket(bucketName).Object(objectName).NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("Object(%q).NewReader: %w", objectName, err)
+		log.Fatalf("Object(%q).NewReader: %v", objectName, err)
 	}
 	defer rc.Close()
 
 	data, err := io.ReadAll(rc)
 	if err != nil {
-		return nil, fmt.Errorf("io.ReadAll: %w", err)
+		log.Fatalf("io.ReadAll: %v", err)
 	}
 
-	fmt.Printf("Downloaded %s from bucket %s\n", objectName, bucketName)
+	log.Printf("Downloaded %s from bucket %s\n", objectName, bucketName)
 	// Process data as needed
 	return data, nil
 }
@@ -84,14 +103,6 @@ func UploadToGCSBucket(bucketName string, objectName string, data []byte) error 
 
 }
 
-func NewJsonEntry(service string, username string, password string, recovery []Recovery) JsonEntry {
-	return JsonEntry{
-		Service:  service,
-		Login:    Login{Username: username, Password: *secretstring.New(password)},
-		Recovery: recovery,
-	}
-}
-
 func decryptData(secretKey string, data []byte) ([]byte, error) {
 	identity, err := age.ParseX25519Identity(secretKey)
 	if err != nil {
@@ -106,33 +117,36 @@ func decryptData(secretKey string, data []byte) ([]byte, error) {
 	return io.ReadAll(r)
 }
 
+// Encrypt a file in memory
+// The reason for doing this is that we want to leave no trace of the unencrypted file
+// On the host machine.
 func EncryptInMemory(publicKey string, data []byte) ([]byte, error) {
-	// 1. Parse the recipient
+	// Parse the recipient
 	recipient, err := age.ParseX25519Recipient(publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse recipient: %w", err)
+		log.Fatalf("failed to parse recipient: %w", err)
 	}
 
-	// 2. Prepare a buffer to hold the encrypted output
+	// Prepare a buffer to hold the encrypted output
 	out := &bytes.Buffer{}
 
-	// 3. Set up the age writer
+	// Set up the age writer
 	// This wraps our 'out' buffer
 	w, err := age.Encrypt(out, recipient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create age encryptor: %w", err)
+		log.Fatalf("failed to create age encryptor: %w", err)
 	}
 
-	// 4. Write the cleartext data to the age writer
+	// Write the cleartext data to the age writer
 	if _, err := w.Write(data); err != nil {
-		return nil, fmt.Errorf("failed to write data: %w", err)
+		log.Fatalf("failed to write data: %w", err)
 	}
 
-	// 5. CRITICAL: Close the age writer to finalize the MAC and flush bytes
+	// CRITICAL: Close the age writer to finalize the MAC and flush bytes
 	if err := w.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close age writer: %w", err)
+		log.Fatalf("failed to close age writer: %w", err)
 	}
 
-	// 6. Return the raw bytes from the buffer
+	// Return the raw bytes from the buffer
 	return out.Bytes(), nil
 }
