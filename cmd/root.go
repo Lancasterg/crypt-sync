@@ -11,8 +11,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "go-crypt-sync",
-	Short: "A simple CLI tool for encrypting files before storing them in a GCS bucket, and then decrypting them once they are ready to be viewed again.",
+	Use:     "go-crypt-sync",
+	Version: "0.0.2",
+	Short:   "A simple CLI tool for encrypting files before storing them in a GCS bucket, and then decrypting them once they are ready to be viewed again.",
 	Long: `This tool provides a secure way to manage sensitive files in Google Cloud Storage (GCS). 
 	It is built on the principle of "Zero Trust" regarding cloud providers. By encrypting files 
 	locally using the 'age' encryption format before they ever reach the network, you ensure 
