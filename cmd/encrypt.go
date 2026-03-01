@@ -14,7 +14,7 @@ import (
 
 // encryptCmd represents the encrypt command
 var encryptCmd = &cobra.Command{
-	Use:   "encrypt [input_file] [output_file]",
+	Use:   "encrypt [input_file] [output_file] [optional --encryption-key] [optional --bucket-name",
 	Args:  cobra.ExactArgs(2),
 	Short: "Encrypt a file using the age master key and upload the encrypted file to a GCS bucket.",
 	Long: `This key is typically found at /$HOME/.config/age"
@@ -55,9 +55,14 @@ var encryptCmd = &cobra.Command{
 				return err
 			}
 
-			// TODO: Make bucket name configurable via flag
-			log.Printf("Uploading file to %s/%s", "encrypted-files-home", outputFile)
-			err = UploadObject(cmd.Context(), "encrypted-files-home", outputFile, encryptedBytes)
+			// bucketName defaults to "encrypted-files-home"
+			bucketName, err := cmd.Flags().GetString("bucket-name")
+			if err != nil {
+				return err
+			}
+
+			log.Printf("Uploading file to %s/%s", bucketName, outputFile)
+			err = UploadObject(cmd.Context(), bucketName, outputFile, encryptedBytes)
 			return err
 		} else {
 			return fmt.Errorf("public key not found in key file")
@@ -68,4 +73,5 @@ var encryptCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(encryptCmd)
 	encryptCmd.Flags().StringP("encryption-key", "k", "", "Specify an encryption key (optional)")
+	encryptCmd.Flags().StringP("bucket-name", "b", "encrypted-files-home", "Specify a bucket name (optional)")
 }
