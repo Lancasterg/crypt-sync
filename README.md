@@ -29,12 +29,12 @@ The latest binary can be downloaded [here](https://github.com/Lancasterg/crypt-s
 ### List
 | Command | Flag | Short | Description | Required |
 | :--- | :--- | :--- | :--- | :--- |
-| `list` | `bucket-name` | `--bucket` | `The bucket to view the contenst of` | Yes |
+| `list` | `bucket-name` | `--bucket` | `The bucket to view the contents of` | Yes |
 
 ### Rm
 | Command | Flag | Short | Description | Required |
 | :--- | :--- | :--- | :--- | :--- |
-| `rm` | `bucket-name` | `--bucket` | `The bucket to view the contenst of` | Yes |
+| `rm` | `bucket-name` | `--bucket` | `The bucket to view the contents of` | Yes |
 
 ## Installation (for devs)
 
