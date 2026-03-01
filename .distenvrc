@@ -1,1 +1,2 @@
 export AGE_HOME="/path/to/age/config"
+export PROVIDER="gcloud" # Not yet used, but may expand to proton / aws in future
