@@ -10,6 +10,16 @@ It ensures that your files—specifically sensitive configuration or credential 
 
 The latest binary can be downloaded [here](https://github.com/Lancasterg/crypt-sync/blob/main/bin/go-crypt-sync)
 
+## A word on keys 🔑
+
+This tool uses [age](https://github.com/FiloSottile/age) for encryption. The security of your data depends entirely on your private key (identity file). 
+
+1.  **Do not share your private key.**
+2.  **Do not commit your private key to version control.**
+3.  **Back up your private key securely.**
+
+If you lose your private key, your data is irretrievable. If a malicious actor gains access to your private key, they can decrypt everything. To put it bluntly: if someone gets your private key, you are fucked. I would recommend putting a copy of your key file in Google Secret Manager (or a password manager like [proton pass](https://proton.me/pass/security), or maybe multiple **trusted** places). If you dropped your laptop tomorrow after encrypting half your files and uploading them to a GCS bucket (without storing the key elsewhere) you would really kick yourself, so please don't do it.
+
 ## Flags
 ### Download
 
