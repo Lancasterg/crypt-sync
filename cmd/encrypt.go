@@ -14,38 +14,28 @@ import (
 
 // encryptCmd represents the encrypt command
 var encryptCmd = &cobra.Command{
-	Use: "encrypt [input_file] [output_file]",
-	// Args:  cobra.ExactArgs(2),
+	Use:   "encrypt [input_file] [output_file]",
+	Args:  cobra.ExactArgs(2),
 	Short: "Encrypt a file using the age master key and upload the encrypted file to a GCS bucket.",
 	Long: `This key is typically found at /$HOME/.config/age"
 	You can export the AGE_HOME environment variable to point to this location.
 	By default, the tool looks for the master.txt file in the same directory.
 	`,
-	Run: func(cmd *cobra.Command, args []string) {
-
-		ageHome := os.Getenv("AGE_HOME")
-		keyPath, err := cmd.Flags().GetString("encryption-key")
-		if keyPath != "" {
-			// Do nothing as key has been found
-		} else if ageHome != "" {
-			keyPath = ageHome + "/master.txt"
-		} else {
-			log.Fatalf("Either --encryption-key or AGE_HOME environment variable not set")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		flagKey, _ := cmd.Flags().GetString("encryption-key")
+		keyPath, err := GetDefaultKeyPath(flagKey)
+		if err != nil {
+			return err
 		}
-
-		if ageHome == "" {
-			log.Fatalf("AGE_HOME environment variable not set")
-		}
-
 		inputFile := args[0]
 		outputFile := args[1]
 
-		fmt.Println("Reading key from:", keyPath)
+		log.Println("Reading key from:", keyPath)
 
 		content, err := os.ReadFile(keyPath)
 
 		if err != nil {
-			log.Fatalf("File not found: %s", keyPath)
+			return fmt.Errorf("file not found: %s", keyPath)
 		}
 
 		keyContent := string(content)
@@ -54,27 +44,24 @@ var encryptCmd = &cobra.Command{
 
 		inputFileRead, err := os.ReadFile(inputFile)
 		if err != nil {
-			log.Fatalf("Failed to read input file: %v", err)
+			return fmt.Errorf("failed to read input file: %v", err)
 		}
 
 		if len(matches) > 1 {
-
 			publicKey := matches[1]
-			log.Println("Extracted Public Key: ", publicKey)
-			encryptedBytes, err := EncryptInMemory(publicKey, inputFileRead)
-			log.Println(encryptedBytes)
 
+			encryptedBytes, err := EncryptInMemory(publicKey, inputFileRead)
 			if err != nil {
-				log.Fatalf("%v", err)
+				return err
 			}
 
-			// Write to GCS
-			err = UploadToGCSBucket("encrypted-files-home", outputFile, encryptedBytes)
-
+			// TODO: Make bucket name configurable via flag
+			log.Printf("Uploading file to %s/%s", "encrypted-files-home", outputFile)
+			err = UploadObject(cmd.Context(), "encrypted-files-home", outputFile, encryptedBytes)
+			return err
 		} else {
-			log.Fatalf("Public key not found in key file")
+			return fmt.Errorf("public key not found in key file")
 		}
-
 	},
 }
 

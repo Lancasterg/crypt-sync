@@ -9,7 +9,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -27,62 +28,68 @@ type Recovery struct {
 	Answer   string `json:"answer"`
 }
 
-type JsonEntry struct {
+type JSONEntry struct {
 	Service  string     `json:"service"`
 	Login    Login      `json:"login"`
 	Recovery []Recovery `json:"recovery"`
 }
 
-// Creates a new JsonEntry Object
+// NewJSONEntry Creates a new JSONEntry Object
 // Currently not used, but will be used in future to add to json documents
 // prior to encrypting
-func NewJsonEntry(service string, username string, password string, recovery []Recovery) JsonEntry {
-	return JsonEntry{
+func NewJSONEntry(service string, username string, password string, recovery []Recovery) JSONEntry {
+	return JSONEntry{
 		Service:  service,
 		Login:    Login{Username: username, Password: *secretstring.New(password)},
 		Recovery: recovery,
 	}
 }
 
-// Download an encrypted file from a GCS bucket.
+// GetDefaultKeyPath resolves the key path from the flag or environment variable
+func GetDefaultKeyPath(flagVal string) (string, error) {
+	if flagVal != "" {
+		return flagVal, nil
+	}
+	ageHome := os.Getenv("AGE_HOME")
+	if ageHome == "" {
+		return "", fmt.Errorf("AGE_HOME environment variable not set")
+	}
+	return filepath.Join(ageHome, "master.txt"), nil
+}
+
+// DownloadObject downloads an encrypted file from a GCS bucket.
 // This function does not write to disk, it simply downloads the file and stores the result
 // in memory as bytes.
-func DownloadFromGCSBucket(bucketName string, objectName string) ([]byte, error) {
-	ctx := context.Background()
+func DownloadObject(ctx context.Context, bucketName string, objectName string) ([]byte, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		log.Fatalf("storage.NewClient: %v", err)
+		return nil, fmt.Errorf("storage.NewClient: %w", err)
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
 	rc, err := client.Bucket(bucketName).Object(objectName).NewReader(ctx)
 	if err != nil {
-		log.Fatalf("Object(%q).NewReader: %v", objectName, err)
+		return nil, fmt.Errorf("Object(%q).NewReader: %w", objectName, err)
 	}
 	defer rc.Close()
 
 	data, err := io.ReadAll(rc)
 	if err != nil {
-		log.Fatalf("io.ReadAll: %v", err)
+		return nil, fmt.Errorf("io.ReadAll: %w", err)
 	}
-
-	log.Printf("Downloaded %s from bucket %s\n", objectName, bucketName)
-	// Process data as needed
 	return data, nil
 }
 
-func UploadToGCSBucket(bucketName string, objectName string, data []byte) error {
-	ctx := context.Background()
+func UploadObject(ctx context.Context, bucketName string, objectName string, data []byte) error {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return fmt.Errorf("storage.NewClient: %w", err)
 	}
 	defer client.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
 	defer cancel()
 
 	// NewWriter does not return an error immediately
@@ -124,7 +131,7 @@ func EncryptInMemory(publicKey string, data []byte) ([]byte, error) {
 	// Parse the recipient
 	recipient, err := age.ParseX25519Recipient(publicKey)
 	if err != nil {
-		log.Fatalf("failed to parse recipient: %w", err)
+		return nil, fmt.Errorf("failed to parse recipient: %w", err)
 	}
 
 	// Prepare a buffer to hold the encrypted output
@@ -134,17 +141,17 @@ func EncryptInMemory(publicKey string, data []byte) ([]byte, error) {
 	// This wraps our 'out' buffer
 	w, err := age.Encrypt(out, recipient)
 	if err != nil {
-		log.Fatalf("failed to create age encryptor: %w", err)
+		return nil, fmt.Errorf("failed to create age encryptor: %w", err)
 	}
 
 	// Write the cleartext data to the age writer
 	if _, err := w.Write(data); err != nil {
-		log.Fatalf("failed to write data: %w", err)
+		return nil, fmt.Errorf("failed to write data: %w", err)
 	}
 
 	// CRITICAL: Close the age writer to finalize the MAC and flush bytes
 	if err := w.Close(); err != nil {
-		log.Fatalf("failed to close age writer: %w", err)
+		return nil, fmt.Errorf("failed to close age writer: %w", err)
 	}
 
 	// Return the raw bytes from the buffer

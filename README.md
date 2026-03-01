@@ -26,6 +26,16 @@ The latest binary can be downloaded [here](https://github.com/Lancasterg/crypt-s
 | `encrypt` | `input-file` | `Positional` | The name of the file to encrypt | Yes |
 | `encrypt` | `output-file` | `Positional` | The name of the file to upload once encrypted | Yes |
 
+### List
+| Command | Flag | Short | Description | Required |
+| :--- | :--- | :--- | :--- | :--- |
+| `list` | `bucket-name` | `--bucket` | `The bucket to view the contenst of` | Yes |
+
+### Rm
+| Command | Flag | Short | Description | Required |
+| :--- | :--- | :--- | :--- | :--- |
+| `rm` | `bucket-name` | `--bucket` | `The bucket to view the contenst of` | Yes |
+
 ## Installation (for devs)
 
 Ensure you have Actually Good Encryption (AGE) installed on your machine.

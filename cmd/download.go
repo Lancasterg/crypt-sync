@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -14,75 +15,63 @@ import (
 
 var shouldDecrypt bool
 
-func DecryptFile(keyPath string, fileContent string) ([]byte, error) {
-
+func decryptFileContent(keyPath string, fileContent []byte) ([]byte, error) {
 	log.Println("Reading key from:", keyPath)
 
 	content, err := os.ReadFile(keyPath)
-
 	if err != nil {
-		log.Fatalf("File not found: %s", keyPath)
+		return nil, fmt.Errorf("key file not found: %s", keyPath)
 	}
 
 	keyContent := string(content)
 	re := regexp.MustCompile(`(AGE-SECRET-KEY-[A-Z0-9]+)`)
 
 	matches := re.FindStringSubmatch(keyContent)
-
 	if len(matches) > 1 {
-
 		privateKey := matches[1]
-		bytes, err := decryptData(privateKey, []byte(fileContent))
-
+		bytes, err := decryptData(privateKey, fileContent)
 		if err != nil {
-			log.Fatalf("decryption failed: %v", err)
-		} else {
-			return bytes, nil
+			return nil, fmt.Errorf("decryption failed: %w", err)
 		}
-	} else {
-		log.Fatalf("Private key not found in key file")
+		return bytes, nil
 	}
-	return nil, err
-
+	return nil, fmt.Errorf("private key not found in key file")
 }
 
 var downloadCmd = &cobra.Command{
 	Use:   "download [bucket-name] [file-name] [optional --decryption-key] [optional --output] [optional --decrypt (default: false)]",
 	Short: "Download and optionally decrypt a GCS file",
-	Run: func(cmd *cobra.Command, args []string) {
+	Args:  cobra.ExactArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
 		bucketName := args[0]
 		fileName := args[1]
 
 		var finalData []byte
 
-		ageHome := os.Getenv("AGE_HOME")
-		keyPath, err := cmd.Flags().GetString("decryption-key")
-		if keyPath != "" {
-			// Do nothing as key has been found
-		} else if ageHome != "" {
-			keyPath = ageHome + "/master.txt"
-		} else {
-			log.Fatalf("Either --decryption-key or AGE_HOME environment variable not set")
+		flagKey, _ := cmd.Flags().GetString("decryption-key")
+		keyPath, err := GetDefaultKeyPath(flagKey)
+		if err != nil {
+			return err
 		}
 
 		// Download from GCS bucket
-		file, err := DownloadFromGCSBucket(bucketName, fileName)
+		finalData, err = DownloadObject(cmd.Context(), bucketName, fileName)
 		if err != nil {
-			log.Fatalf("Download failed: %v", err)
+			return fmt.Errorf("download failed: %w", err)
 		}
-		finalData = file
+		log.Printf("Downloaded %s from bucket %s\n", fileName, bucketName)
 
 		// Optional Decrypt
 		if shouldDecrypt {
-			finalData, err = DecryptFile(keyPath, string(file))
+			finalData, err = decryptFileContent(keyPath, finalData)
 			if err != nil {
-				log.Fatalf("Decryption failed: %v", err)
+				return err
 			}
 
 			// Validate JSON structure
-			var entries []JsonEntry
+			var entries []JSONEntry
 			if err := json.Unmarshal(finalData, &entries); err == nil && len(entries) > 0 {
-				log.Printf("Successfully decrypted service: %s\n", entries[0].Service)
+				log.Printf("Successfully decrypted file and parsed JSON\n")
 			}
 		}
 
@@ -92,10 +81,11 @@ var downloadCmd = &cobra.Command{
 			log.Printf("%s", string(finalData))
 		} else {
 			if err := os.WriteFile(outputFile, finalData, 0644); err != nil {
-				log.Fatalf("Failed to write file: %v", err)
+				return fmt.Errorf("failed to write file: %w", err)
 			}
 			log.Printf("File saved to: %s\n", outputFile)
 		}
+		return nil
 	},
 }
 

@@ -4,7 +4,7 @@ Copyright © 2026 GEORGE LANCASTER <lancaster0180@gmail.com>
 package cmd
 
 import (
-	"context"
+	"fmt"
 	"log"
 
 	"cloud.google.com/go/storage"
@@ -17,29 +17,33 @@ var rmCmd = &cobra.Command{
 	Short: "Remove a file from GCS",
 	Long: `Delete a file from a GCS bucket. 
 	We do not care if the file is encrypted or not, we simply want to delete it.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		bucketName, err := cmd.Flags().GetString("bucket-name")
+		if err != nil {
+			return err
+		}
 
-		ctx := context.Background()
+		ctx := cmd.Context()
 
 		client, err := storage.NewClient(ctx)
 		if err != nil {
-			log.Fatalf("Failed to create client: %v", err)
+			return fmt.Errorf("failed to create client: %w", err)
 		}
 		defer client.Close()
 
 		fileName, err := cmd.Flags().GetString("file-name")
-		if err != nil {
-			log.Fatalf("Error getting file name: %v", err)
+		if err != nil || fileName == "" {
+			return fmt.Errorf("file-name is required")
 		}
 
 		err = client.Bucket(bucketName).Object(fileName).Delete(ctx)
 		if err != nil {
-			log.Fatalf("Failed to delete object: %v", err)
+			return fmt.Errorf("failed to delete object: %w", err)
+		} else {
+			log.Printf("Object %s deleted from bucket %s\n", fileName, bucketName)
+			return nil
+
 		}
-
-		log.Printf("Object %s deleted from bucket %s\n", fileName, bucketName)
-
 	},
 }
 

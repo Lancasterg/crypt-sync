@@ -19,15 +19,17 @@ var listCmd = &cobra.Command{
 	Use:   "list [optional bucket-name]",
 	Short: "List the contents of a GCS bucket",
 	Long:  `List the contents of a GCS bucket. The default bucket is encrypted-files-home`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 
 		bucketName, err := cmd.Flags().GetString("bucket-name")
-
-		ctx := context.Background()
+		if err != nil {
+			return err
+		}
+		ctx := cmd.Context()
 
 		client, err := storage.NewClient(ctx)
 		if err != nil {
-			log.Fatalf("Failed to create client: %v", err)
+			return fmt.Errorf("failed to create client: %w", err)
 		}
 		defer client.Close()
 
@@ -51,7 +53,7 @@ var listCmd = &cobra.Command{
 				break // End of the list
 			}
 			if err != nil {
-				log.Fatalf("Error iterating objects: %v", err)
+				return fmt.Errorf("error iterating objects: %w", err)
 			}
 
 			// Print the object metadata
@@ -60,6 +62,7 @@ var listCmd = &cobra.Command{
 				attrs.Size,
 				attrs.Created.Format("2006-01-02 15:04"))
 		}
+		return nil
 	},
 }
 
