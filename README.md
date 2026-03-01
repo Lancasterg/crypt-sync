@@ -1,4 +1,4 @@
-# go-crypt-sync v0.0.2 🔒
+# go-crypt-sync v0.0.3 🔒
 
 A CLI tool for securely syncing encrypted files to Google Cloud Storage.
 
