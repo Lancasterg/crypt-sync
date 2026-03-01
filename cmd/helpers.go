@@ -51,7 +51,7 @@ func DownloadFromGCSBucket(bucketName string, objectName string) ([]byte, error)
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		log.Fatalf("storage.NewClient: %w", err)
+		log.Fatalf("storage.NewClient: %v", err)
 	}
 	defer client.Close()
 

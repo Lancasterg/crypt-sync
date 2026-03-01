@@ -47,7 +47,7 @@ var encryptCmd = &cobra.Command{
 
 		inputFileRead, err := os.ReadFile(inputFile)
 		if err != nil {
-			log.Fatalf("Failed to read input file: %w", err)
+			log.Fatalf("Failed to read input file: %v", err)
 		}
 
 		if len(matches) > 1 {
@@ -58,7 +58,7 @@ var encryptCmd = &cobra.Command{
 			log.Println(encryptedBytes)
 
 			if err != nil {
-				log.Fatalf("%w", err)
+				log.Fatalf("%v", err)
 			}
 
 			// Write to GCS

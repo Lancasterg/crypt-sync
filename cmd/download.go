@@ -69,7 +69,7 @@ var downloadCmd = &cobra.Command{
 		}
 		finalData = file
 
-		// 2. Optional Decrypt
+		// Optional Decrypt
 		if shouldDecrypt {
 			finalData, err = DecryptFile("master.txt", string(file))
 			if err != nil {
@@ -83,10 +83,10 @@ var downloadCmd = &cobra.Command{
 			}
 		}
 
-		// 3. Output Logic (Moved OUTSIDE the if/else)
+		// Output Logic is the same regardless if decrypted or not
 		outputFile, _ := cmd.Flags().GetString("output")
 		if outputFile == "" {
-			log.Fatalf(string(finalData))
+			log.Printf("%s", string(finalData))
 		} else {
 			if err := os.WriteFile(outputFile, finalData, 0644); err != nil {
 				log.Fatalf("Failed to write file: %v", err)
