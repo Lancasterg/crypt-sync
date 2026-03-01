@@ -10,6 +10,22 @@ It ensures that your files—specifically sensitive configuration or credential 
 
 The latest binary can be downloaded [here](https://github.com/Lancasterg/crypt-sync/blob/main/bin/go-crypt-sync)
 
+## Flags
+### Download
+
+| Command | Flag | Short | Description | Required |
+| :--- | :--- | :--- | :--- | :--- |
+| `download` | `bucket-name` | `Positional` | The name of the bucket to download from | Yes |
+| `download` | `file-name` | `Positional` | The name of the file to download | Yes |
+| `download` | `--output` | `-o` | Specify an output file path. If no, outout will be writtent to stdout | No |
+| `download` | `--decrypt` | `-d` | Decrypt the file after downloading | No |
+
+### Encrypt
+| Command | Flag | Short | Description | Required |
+| :--- | :--- | :--- | :--- | :--- |
+| `encrypt` | `input-file` | `Positional` | The name of the file to encrypt | Yes |
+| `encrypt` | `output-file` | `Positional` | The name of the file to upload once encrypted | Yes |
+
 ## Installation (for devs)
 
 Ensure you have Actually Good Encryption (AGE) installed on your machine.
@@ -39,6 +55,7 @@ $ export AGE_HOME="$HOME/.config/age"
 # Encrypt and upload your first file
 $ go run main.go encrypt [local_file.json] [uploaded_file.enc]
 
+# Download the file you just uploaded
 $ go run main.go download [bucket-name] [file_name] [--output dev_tools/test123.json] [--decrypt true]
 
 ```
