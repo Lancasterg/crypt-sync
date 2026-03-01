@@ -1,69 +1,138 @@
 package cmd
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
-	"os"
+	"time"
 
+	"cloud.google.com/go/storage"
 	"filippo.io/age"
+	"github.com/chmller/secretstring"
 )
 
-func decryptFile(secretKey string, inputFile string) ([]byte, error) {
+type Login struct {
+	Username string                    `json:"service"`
+	Password secretstring.SecretString `json:"password"`
+}
+
+type Recovery struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+type JsonEntry struct {
+	Service  string     `json:"service"`
+	Login    Login      `json:"login"`
+	Recovery []Recovery `json:"recovery"`
+}
+
+func DownloadFromGCSBucket(bucketName string, objectName string) ([]byte, error) {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("storage.NewClient: %w", err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	defer cancel()
+
+	rc, err := client.Bucket(bucketName).Object(objectName).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("Object(%q).NewReader: %w", objectName, err)
+	}
+	defer rc.Close()
+
+	data, err := io.ReadAll(rc)
+	if err != nil {
+		return nil, fmt.Errorf("io.ReadAll: %w", err)
+	}
+
+	fmt.Printf("Downloaded %s from bucket %s\n", objectName, bucketName)
+	// Process data as needed
+	return data, nil
+}
+
+func UploadToGCSBucket(bucketName string, objectName string, data []byte) error {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("storage.NewClient: %w", err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	defer cancel()
+
+	// NewWriter does not return an error immediately
+	wc := client.Bucket(bucketName).Object(objectName).NewWriter(ctx)
+
+	// 1. Write the data to the writer
+	if _, err = wc.Write(data); err != nil {
+		return fmt.Errorf("Object(%q).Write: %w", objectName, err)
+	}
+
+	// 2. Crucial: You MUST close the writer to flush the buffer
+	// and finalize the upload to GCS.
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("Object(%q).Close: %w", objectName, err)
+	}
+
+	return nil
+
+}
+
+func NewJsonEntry(service string, username string, password string, recovery []Recovery) JsonEntry {
+	return JsonEntry{
+		Service:  service,
+		Login:    Login{Username: username, Password: *secretstring.New(password)},
+		Recovery: recovery,
+	}
+}
+
+func decryptData(secretKey string, data []byte) ([]byte, error) {
 	identity, err := age.ParseX25519Identity(secretKey)
 	if err != nil {
 		return nil, err
 	}
 
-	in, err := os.Open(inputFile)
-	if err != nil {
-		return nil, err
-	}
-
-	r, err := age.Decrypt(in, identity)
+	r, err := age.Decrypt(bytes.NewReader(data), identity)
 	if err != nil {
 		return nil, err
 	}
 
 	return io.ReadAll(r)
 }
-func encryptFile(publicKey string, inputFile string, outputFile string) error {
+
+func EncryptInMemory(publicKey string, data []byte) ([]byte, error) {
+	// 1. Parse the recipient
 	recipient, err := age.ParseX25519Recipient(publicKey)
 	if err != nil {
-		return fmt.Errorf("failed to parse recipient: %w", err)
+		return nil, fmt.Errorf("failed to parse recipient: %w", err)
 	}
 
-	in, err := os.Open(inputFile)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
+	// 2. Prepare a buffer to hold the encrypted output
+	out := &bytes.Buffer{}
 
-	out, err := os.Create(outputFile)
-	if err != nil {
-		return err
-	}
-	// We wrap the closure in a bit of logic to catch errors on close
-	defer out.Close()
-
+	// 3. Set up the age writer
+	// This wraps our 'out' buffer
 	w, err := age.Encrypt(out, recipient)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to create age encryptor: %w", err)
 	}
 
-	// We MUST close 'w' to flush the final age block/MAC.
-	// We use a defer with a named error or a manual close to be safe.
-	closeErr := func() error {
-		_, copyErr := io.Copy(w, in)
-		if copyErr != nil {
-			w.Close() // Close anyway to clean up, but return the copy error
-			return copyErr
-		}
-		return w.Close()
-	}()
-
-	if closeErr != nil {
-		return fmt.Errorf("encryption failed: %w", closeErr)
+	// 4. Write the cleartext data to the age writer
+	if _, err := w.Write(data); err != nil {
+		return nil, fmt.Errorf("failed to write data: %w", err)
 	}
 
-	return nil
+	// 5. CRITICAL: Close the age writer to finalize the MAC and flush bytes
+	if err := w.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close age writer: %w", err)
+	}
+
+	// 6. Return the raw bytes from the buffer
+	return out.Bytes(), nil
 }

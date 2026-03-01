@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 
@@ -13,8 +14,8 @@ import (
 
 // encryptCmd represents the encrypt command
 var encryptCmd = &cobra.Command{
-	Use:   "encrypt [input_file] [output_file] [key_name]",
-	Args:  cobra.ExactArgs(3),
+	Use:   "encrypt [input_file] [output_file]",
+	Args:  cobra.ExactArgs(2),
 	Short: "Encrypt a file using the age master key",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -24,16 +25,14 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		ageHome := os.Getenv("AGE_HOME")
+		keyName := "master.txt"
 
 		if ageHome == "" {
-			fmt.Println("AGE_HOME environment variable not set")
-			os.Exit(1)
+			log.Fatalf("AGE_HOME environment variable not set")
 		}
 
 		inputFile := args[0]
 		outputFile := args[1]
-		keyName := args[2]
-
 		keyPath := ageHome + "/" + keyName
 
 		fmt.Println("Reading key from:", keyPath)
@@ -46,24 +45,30 @@ to quickly create a Cobra application.`,
 		}
 
 		keyContent := string(content)
-		re := regexp.MustCompile(`# public key: (age1[a-z0-9]+)`)
-
+		re := regexp.MustCompile(`# public key: (age[a-z0-9]+)`)
 		matches := re.FindStringSubmatch(keyContent)
+
+		inputFileRead, err := os.ReadFile(inputFile)
+		if err != nil {
+			log.Fatalf("Failed to read input file: %w", err)
+		}
 
 		if len(matches) > 1 {
 
 			publicKey := matches[1]
 			fmt.Println("Extracted Public Key: ", publicKey)
-			err := encryptFile(publicKey, inputFile, outputFile)
+			encryptedBytes, err := EncryptInMemory(publicKey, inputFileRead)
+			log.Println(encryptedBytes)
 
 			if err != nil {
-				formattedErr := fmt.Errorf("...: %w", err)
-				fmt.Println(formattedErr)
-				// os.Exit(1)
+				log.Fatalf("%w", err)
 			}
+
+			// Write to GCS
+			err = UploadToGCSBucket("encrypted-files-home", outputFile, encryptedBytes)
+
 		} else {
-			fmt.Println("Public key not found in key file")
-			os.Exit(1)
+			log.Fatalf("Public key not found in key file")
 		}
 
 	},
@@ -71,15 +76,4 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(encryptCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// encryptCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// encryptCmd.Flags().String("output", "")
-
 }
