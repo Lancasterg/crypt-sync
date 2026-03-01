@@ -1,4 +1,4 @@
-# go-crypt-sync v0.0.1 🔒
+# go-crypt-sync v0.0.2 🔒
 
 A CLI tool for securely syncing encrypted files to Google Cloud Storage.
 
@@ -40,17 +40,17 @@ The latest binary can be downloaded [here](https://github.com/Lancasterg/crypt-s
 
 Ensure you have Actually Good Encryption (AGE) installed on your machine.
 
-Arch (based) users
+Arch (💯) users
 ```bash
 $ sudo pacman -S age
 ```
 
-Mac
+Mac (🧪)
 ```bash
 $ brew install age
 ```
 
-Ubuntu / Debian
+Ubuntu / Debian (🕹️)
 ```bash
 $ sudo apt install age
 ```

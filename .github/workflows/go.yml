@@ -49,11 +49,14 @@ jobs:
         # Update version in cmd/root.go
         sed -i "s/Version: \"$CURRENT_VERSION\"/Version: \"$NEW_VERSION\"/" cmd/root.go
 
+        # Update version in README.md
+        sed -i "s/go-crypt-sync v$CURRENT_VERSION/go-crypt-sync v$NEW_VERSION/" README.md
+
         # Build the new binary
         go build -v -o bin/go-crypt-sync .
 
         # Commit and push changes
         # We use [skip ci] to prevent an infinite loop of workflows
-        git add cmd/root.go bin/go-crypt-sync
+        git add cmd/root.go bin/go-crypt-sync README.md
         git commit -m "Bump version to $NEW_VERSION [skip ci]"
         git push
