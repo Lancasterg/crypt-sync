@@ -1,4 +1,4 @@
-.PHONY: build clean upload download
+.PHONY: build clean upload download,= test
 
 build:
 	go build -o bin/go-crypt-sync .	
@@ -17,3 +17,6 @@ list:
 
 append:
 	go run main.go append SomeService my-username mypassword --recovery=hello:goodbye --recovery=smile:yay --file-name=dev_tools/decrypted.json
+
+test: 
+	go test -v ./cmd
