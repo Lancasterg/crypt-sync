@@ -1,87 +1,58 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestRead(t *testing.T) {
+// TestListCommand tests the 'list' cobra command.
+func TestListCommand(t *testing.T) {
+	// Setup
 	ctx := context.Background()
-
-	bucketName := "test-data-encrypted"
-	objectName := "file.json"
-	data := `{"hello": "world"}` // Use standard double quotes for valid JSON
-
+	bucketName := "test-list-bucket"
 	_, client := SetupGCSHelper(t, bucketName)
 
-	// --- STEP 1: UPLOAD THE DATA ---
-	// You must write the file to the fake bucket before you can read it.
-	wc := client.Bucket(bucketName).Object(objectName).NewWriter(ctx)
-	if _, err := io.WriteString(wc, data); err != nil {
-		t.Fatalf("failed to write data: %v", err)
-	}
-	if err := wc.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
+	// Create some dummy files in the fake GCS bucket
+	filesToUpload := map[string]string{
+		"file1.txt":     "content1",
+		"file2.txt":     "content2",
+		"dir/file3.txt": "content3",
 	}
 
-	// --- STEP 2: READ THE DATA ---
-	rc, err := client.Bucket(bucketName).Object(objectName).NewReader(ctx)
-	if err != nil {
-		// Use t.Fatalf instead of log.Fatalf in tests so the test fails gracefully
-		t.Fatalf("failed to create reader: %v", err)
-	}
-	defer rc.Close()
-
-	content, err := io.ReadAll(rc)
-	if err != nil {
-		t.Fatalf("failed to read content: %v", err)
+	for name, data := range filesToUpload {
+		wc := client.Bucket(bucketName).Object(name).NewWriter(ctx)
+		_, err := io.WriteString(wc, data)
+		require.NoError(t, err, "failed to write data for "+name)
+		err = wc.Close()
+		require.NoError(t, err, "failed to close writer for "+name)
 	}
 
-	fmt.Printf("Successfully read from fake GCS: %s\n", string(content))
+	// Execute the 'list' command
+	// Capture stdout to check the output
+	var outBuf bytes.Buffer
+	rootCmd.SetOut(&outBuf)
+	rootCmd.SetErr(&outBuf) // Capture stderr as well for debugging
 
-	// Optional: Add an assertion to make it a real test
-	if string(content) != data {
-		t.Errorf("got %s, want %s", string(content), data)
-	}
-}
+	// Reset flags to avoid pollution from other tests
+	listCmd.ResetFlags()
+	listCmd.Flags().StringP("bucket-name", "b", "encrypted-files-home", "Specify a bucket name (optional)")
 
-func TestList(t *testing.T) {
-	ctx := context.Background()
+	rootCmd.SetArgs([]string{"list", "--bucket-name", bucketName})
 
-	bucketName := "test-data-encrypted"
-	objectName := "file.json"
-	data := `{"hello": "world"}` // Use standard double quotes for valid JSON
+	err := listCmd.Execute()
+	require.NoError(t, err, "list command failed")
 
-	_, client := SetupGCSHelper(t, bucketName)
+	// Assertions
+	output := outBuf.String()
+	t.Logf("List command output:\n%s", output)
 
-	// You must write the file to the fake bucket before you can read it.
-	wc := client.Bucket(bucketName).Object(objectName).NewWriter(ctx)
-	if _, err := io.WriteString(wc, data); err != nil {
-		t.Fatalf("failed to write data: %v", err)
-	}
-	if err := wc.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
-	}
-
-	// Read the data
-	rc, err := client.Bucket(bucketName).Object(objectName).NewReader(ctx)
-	if err != nil {
-		// Use t.Fatalf instead of log.Fatalf in tests so the test fails gracefully
-		t.Fatalf("failed to create reader: %v", err)
-	}
-	defer rc.Close()
-
-	content, err := io.ReadAll(rc)
-	if err != nil {
-		t.Fatalf("failed to read content: %v", err)
-	}
-
-	fmt.Printf("Successfully read from fake GCS: %s\n", string(content))
-
-	// Optional: Add an assertion to make it a real test
-	if string(content) != data {
-		t.Errorf("got %s, want %s", string(content), data)
+	// Check that all uploaded files are listed
+	for name := range filesToUpload {
+		assert.Contains(t, output, name)
 	}
 }

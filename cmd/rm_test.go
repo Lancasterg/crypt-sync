@@ -5,29 +5,45 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
+
+	"cloud.google.com/go/storage"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestRM(t *testing.T) {
+func TestRMCommand(t *testing.T) {
+	// Setup
 	ctx := context.Background()
+	bucketName := "test-rm-bucket"
+	objectName := "file-to-delete.txt"
+	data := `{"delete": "me"}`
 
-	bucketName := "test-data-encrypted"
-	objectName := "file.json"
-	data := `{"hello": "world"}` // Use standard double quotes for valid JSON
+	_, client := SetupGCSHelper(t, bucketName)
 
-	_, client := SetupGCSHelper(t, "test-data-encrypted")
-
+	// 1. Upload a file to be deleted
 	wc := client.Bucket(bucketName).Object(objectName).NewWriter(ctx)
-	if _, err := io.WriteString(wc, data); err != nil {
-		t.Fatalf("failed to write data: %v", err)
-	}
-	if err := wc.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
-	}
-	if err := client.Bucket(bucketName).Object(objectName).Delete(ctx); err != nil {
-		t.Fatalf("failed to delete object: %v", err)
-	} else {
-		t.Logf("Object %s deleted from bucket %s\n", objectName, bucketName)
-	}
+	_, err := io.WriteString(wc, data)
+	require.NoError(t, err)
+	err = wc.Close()
+	require.NoError(t, err)
+
+	// Verify file exists before deletion
+	_, err = client.Bucket(bucketName).Object(objectName).Attrs(ctx)
+	require.NoError(t, err, "file should exist before deletion")
+
+	// 2. Execute the 'rm' command
+	rmCmd.ResetFlags()
+	rmCmd.Flags().StringP("file-name", "f", "", "Specify a file name (required)")
+	rmCmd.Flags().StringP("bucket-name", "b", "encrypted-files-home", "Specify a bucket name (optional)")
+	rootCmd.SetArgs([]string{"rm", "--bucket-name", bucketName, "--file-name", objectName})
+	err = rmCmd.Execute()
+	require.NoError(t, err, "rm command failed")
+
+	// 3. Assert that the file is gone
+	_, err = client.Bucket(bucketName).Object(objectName).Attrs(ctx)
+	assert.Error(t, err, "expected an error when getting attributes of a deleted object")
+	assert.True(t, errors.Is(err, storage.ErrObjectNotExist), "expected error to be ObjectNotExist")
 }
