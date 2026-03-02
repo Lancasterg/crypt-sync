@@ -16,7 +16,7 @@ func TestRM(t *testing.T) {
 	objectName := "file.json"
 	data := `{"hello": "world"}` // Use standard double quotes for valid JSON
 
-	_, client := setupGCS(t, "test-data-encrypted")
+	_, client := SetupGCSHelper(t, "test-data-encrypted")
 
 	wc := client.Bucket(bucketName).Object(objectName).NewWriter(ctx)
 	if _, err := io.WriteString(wc, data); err != nil {
@@ -26,12 +26,8 @@ func TestRM(t *testing.T) {
 		t.Fatalf("failed to close writer: %v", err)
 	}
 	if err := client.Bucket(bucketName).Object(objectName).Delete(ctx); err != nil {
-
-		if err != nil {
-			t.Fatalf("failed to delete object: %v", err)
-		} else {
-			t.Logf("Object %s deleted from bucket %s\n", objectName, bucketName)
-		}
+		t.Fatalf("failed to delete object: %v", err)
+	} else {
+		t.Logf("Object %s deleted from bucket %s\n", objectName, bucketName)
 	}
-
 }
