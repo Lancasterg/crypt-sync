@@ -125,7 +125,6 @@ How it works: 1.  The drone sends a 1KB packet every 0.5s.
 
 Result: To an observer, the drone's "heartbeat" never changes, making it impossible to tell when it’s actually performing an action.
 
-
 ### Ephemeral Key Rotation (Perfect Forward Secrecy)
 If you use the same age key for a month and the key is compromised, an attacker can decrypt all the files they recorded over that month.
 
