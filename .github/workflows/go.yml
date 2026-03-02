@@ -28,8 +28,15 @@ jobs:
       with:
         go-version: '1.25'
 
+    - name: Set up fake-gcs-server
+      run: |
+        export STORAGE_EMULATOR_HOST="localhost:4443"
+        docker pull fsouza/fake-gcs-server
+        docker run -d --name fake-gcs-server -p 4443:4443 fsouza/fake-gcs-server
+
     - name: Test
-      run: go test -v ./cmd
+      run: | 
+        go test -v ./cmd
 
     - name: Bump version, Build, and Push
       run: |

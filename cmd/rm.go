@@ -18,6 +18,11 @@ var rmCmd = &cobra.Command{
 	Long: `Delete a file from a GCS bucket. 
 	We do not care if the file is encrypted or not, we simply want to delete it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		fileName, err := cmd.Flags().GetString("file-name")
+		if err != nil || fileName == "" {
+			return fmt.Errorf("file-name is required")
+		}
+
 		bucketName, err := cmd.Flags().GetString("bucket-name")
 		if err != nil {
 			return err
@@ -30,11 +35,6 @@ var rmCmd = &cobra.Command{
 			return fmt.Errorf("failed to create client: %w", err)
 		}
 		defer client.Close()
-
-		fileName, err := cmd.Flags().GetString("file-name")
-		if err != nil || fileName == "" {
-			return fmt.Errorf("file-name is required")
-		}
 
 		err = client.Bucket(bucketName).Object(fileName).Delete(ctx)
 		if err != nil {
